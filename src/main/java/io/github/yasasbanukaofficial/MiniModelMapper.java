@@ -30,7 +30,20 @@ public class MiniModelMapper {
             Map<String, Field> dFields = dCache.computeIfAbsent(destination, this::prepareMapFieldsRecursive);
 
             for (Field sField : sFields) {
-                Field dField = dFields.get(sField.getName());
+                Object sValue = sField.get(source);
+                if (sValue == null) continue;
+
+                String sName = sField.getName();
+                Field dField = dFields.get(sName);
+
+                if (dField == null) {
+                    dField = dFields.get(sName + "Id");
+                    if (dField != null) {
+                        mapFlattenedField(sValue, dField, destinationObj);
+                        continue;
+                    }
+                }
+
                 if (dField != null) {
                     Class<?> sType = sField.getType();
                     Class<?> dType = dField.getType();
@@ -40,7 +53,7 @@ public class MiniModelMapper {
                     }
 
                     if (isCompatible(dType, sType)) {
-                        dField.set(destinationObj, sField.get(source));
+                        dField.set(destinationObj, sValue);
                     } else {
                         throw new RuntimeException("Type mismatch for field '" + sField.getName() +
                                 "'. Source: " + sType.getSimpleName() +
@@ -54,9 +67,21 @@ public class MiniModelMapper {
         }
     }
 
+    private void mapFlattenedField(Object sValue, Field dField, Object dObj) {
+        try {
+            Field idField = sValue.getClass().getDeclaredField("id");
+            idField.setAccessible(true);
+            Object idValue = idField.get(sValue);
+            if (idValue != null && isCompatible(dField.getType(), idValue.getClass())) {
+                dField.set(dObj, idValue);
+            }
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            System.out.println("Failed to map flattened field. The source object does not contain 'id' field or access was denied: " + e.getMessage());
+        }
+    }
+
     private boolean isCompatible(Class<?> target, Class<?> source) {
         if (target.isAssignableFrom(source)) return true;
-
         if (target.isPrimitive()) {
             return PRIMITIVE_WRAPPER_MAP.get(target) == source;
         } else {
