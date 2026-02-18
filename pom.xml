@@ -6,7 +6,7 @@
 
     <groupId>io.github.yasasbanukaofficial</groupId>
     <artifactId>mini-model-mapper</artifactId>
-    <version>1.0.3</version> <packaging>jar</packaging>
+    <version>1.0.5</version> <packaging>jar</packaging>
 
     <name>Mini Model Mapper</name>
     <description>A high-efficiency, zero-dependency reflection-based model mapper.</description>
@@ -49,6 +49,7 @@
                 <extensions>true</extensions>
                 <configuration>
                     <publishingServerId>central</publishingServerId>
+                    <autopublish>true</autopublish>
                 </configuration>
             </plugin>
             <plugin>

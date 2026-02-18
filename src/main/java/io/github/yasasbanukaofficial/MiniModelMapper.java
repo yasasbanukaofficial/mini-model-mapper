@@ -5,19 +5,27 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class MiniModelMapper {
-    private static final Map<Class<?>, Field[]> sCache = new ConcurrentHashMap<>();
-    private static final Map<Class<?>, Map<String, Field>> dCache = new ConcurrentHashMap<>();
+    private final Map<Class<?>, Field[]> sCache = new ConcurrentHashMap<>();
+    private final Map<Class<?>, Map<String, Field>> dCache = new ConcurrentHashMap<>();
 
-    public static <S, D> D map(S source, Class<D> destination) {
+    public <S, D> D map(S source, Class<D> destination) {
         try {
-            D destinationObj = destination.getDeclaredConstructor().newInstance();
-            Field[] sFields = sCache.computeIfAbsent(source.getClass(), MiniModelMapper::prepareFields);
-            Map<String, Field> dFields = dCache.computeIfAbsent(destination, MiniModelMapper::prepareMapFields);
+            var constructor = destination.getDeclaredConstructor();
+            constructor.setAccessible(true);
+            D destinationObj = constructor.newInstance();
+
+            Field[] sFields = sCache.computeIfAbsent(source.getClass(), this::prepareFields);
+            Map<String, Field> dFields = dCache.computeIfAbsent(destination, this::prepareMapFields);
             for (Field sField : sFields) {
                 Field dField = dFields.get(sField.getName());
                 if (dField != null) {
                     Class<?> sType = sField.getType();
                     Class<?> dType = dField.getType();
+
+                    if (Iterable.class.isAssignableFrom(sType) || Map.class.isAssignableFrom(sType)) {
+                        continue;
+                    }
+
                     if (dType.isAssignableFrom(sType)) {
                         dField.set(destinationObj, sField.get(source));
                     } else {
@@ -31,13 +39,13 @@ public class MiniModelMapper {
         }
     }
 
-    private static Field[] prepareFields(Class<?> clz) {
+    private Field[] prepareFields(Class<?> clz) {
         Field[] fields = clz.getDeclaredFields();
         for (Field field : fields) field.setAccessible(true);
         return fields;
     }
 
-    private static Map<String, Field> prepareMapFields(Class<?> clz) {
+    private Map<String, Field> prepareMapFields(Class<?> clz) {
         Map<String, Field> map = new ConcurrentHashMap<>();
         for (Field field: clz.getDeclaredFields()) {
             field.setAccessible(true);
