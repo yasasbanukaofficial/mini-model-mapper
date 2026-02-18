@@ -8,8 +8,6 @@ public class MiniModelMapper {
     private static final Map<Class<?>, Field[]> sCache = new ConcurrentHashMap<>();
     private static final Map<Class<?>, Map<String, Field>> dCache = new ConcurrentHashMap<>();
 
-    private MiniModelMapper() {}
-
     public static <S, D> D map(S source, Class<D> destination) {
         try {
             D destinationObj = destination.getDeclaredConstructor().newInstance();
