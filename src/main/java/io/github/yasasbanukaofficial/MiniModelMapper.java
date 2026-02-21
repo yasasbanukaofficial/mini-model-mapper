@@ -56,15 +56,37 @@ public class MiniModelMapper {
         return false;
     }
 
-    private static Field findMatchingField(Field sField, Map<String, Field> destFields) {
+    private static Field findMatchingField(
+            Field sField,
+            Map<String, Field> destFields) {
         Field exact = destFields.get(sField.getName());
-        if (exact != null) return exact;
-        List<String> sTokens = Tokenizer.tokenize(sField.getName());
-        for (Field dField : destFields.values()) {
-            List<String> dTokens = Tokenizer.tokenize(dField.getName());
-            if (!Collections.disjoint(sTokens, dTokens)) return dField;
+
+        if (exact != null) {
+            return exact;
         }
-        return null;
+
+        List<String> sTokens =
+                Tokenizer.tokenize(sField.getName());
+
+        Field bestMatch = null;
+        int bestScore = 0;
+
+        for (Field dField : destFields.values()) {
+            List<String> dTokens =
+                    Tokenizer.tokenize(dField.getName());
+            int score = 0;
+            for (String token : sTokens) {
+                if (dTokens.contains(token)) {
+                    score++;
+                }
+            }
+
+            if (score > bestScore && score > 1) {
+                bestScore = score;
+                bestMatch = dField;
+            }
+        }
+        return bestMatch;
     }
 
     private static Object convertType(Object value, Field dField) {
@@ -95,7 +117,6 @@ public class MiniModelMapper {
 
                     newCollection.add(mappedItem);
                 }
-
                 return newCollection;
 
             } catch (Exception e) {
