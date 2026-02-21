@@ -90,31 +90,23 @@ public class MiniModelMapper {
     }
 
     private static Object convertType(Object value, Field dField) {
-
         Class<?> targetType = dField.getType();
         Class<?> sourceType = value.getClass();
 
         if (value instanceof Collection<?> srcCollection
                 && Collection.class.isAssignableFrom(targetType)) {
-
             try {
                 Collection<Object> newCollection =
                         new ArrayList<>();
-
                 ParameterizedType generic =
                         (ParameterizedType) dField.getGenericType();
-
                 Class<?> destGenericType =
                         (Class<?>) generic
                                 .getActualTypeArguments()[0];
-
                 for (Object item : srcCollection) {
-
                     if (item == null) continue;
-
                     Object mappedItem =
                             map(item, destGenericType);
-
                     newCollection.add(mappedItem);
                 }
                 return newCollection;
@@ -129,10 +121,8 @@ public class MiniModelMapper {
 
         if (!sourceType.getName().startsWith("java")
                 && !targetType.getName().startsWith("java")) {
-
             return map(value, targetType);
         }
-
         throw new RuntimeException(
                 "Cannot convert "
                         + sourceType
