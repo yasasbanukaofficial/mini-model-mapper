@@ -28,10 +28,10 @@ public class MiniModelMapper {
 
         for (Field sField : sFields) {
             Field dField = findMatchingField(sField, dFields);
-            if (dField != null) {
+            if (dField != null && isCompatible(sField.getType(), dField.getType())) {
                 MappingStrategy strategy = (srcVal) -> {
                     if (srcVal == null) return null;
-                    return convertType(srcVal, dField.getType());
+                    return convertType(srcVal, dField);
                 };
                 MappingPlan.addMapping(plan, new PropertyMapping(sField, dField, strategy));
             }
@@ -39,7 +39,26 @@ public class MiniModelMapper {
         return plan;
     }
 
+    private static boolean isCompatible(Class<?> source, Class<?> dest) {
+        if (dest.isAssignableFrom(source)) return true;
+        if (Number.class.isAssignableFrom(source)
+                && Number.class.isAssignableFrom(dest))
+            return true;
+
+        if (Collection.class.isAssignableFrom(source)
+                && Collection.class.isAssignableFrom(dest))
+            return true;
+
+        if (!source.getName().startsWith("java")
+                && !dest.getName().startsWith("java"))
+            return true;
+
+        return false;
+    }
+
     private static Field findMatchingField(Field sField, Map<String, Field> destFields) {
+        Field exact = destFields.get(sField.getName());
+        if (exact != null) return exact;
         List<String> sTokens = Tokenizer.tokenize(sField.getName());
         for (Field dField : destFields.values()) {
             List<String> dTokens = Tokenizer.tokenize(dField.getName());
@@ -48,25 +67,56 @@ public class MiniModelMapper {
         return null;
     }
 
-    private static Object convertType(Object value, Class<?> targetType) {
-        Class<?> sourceType = value.getClass();
-        if (targetType.isAssignableFrom(sourceType)) return value;
+    private static Object convertType(Object value, Field dField) {
 
-        if (value instanceof Number) {
-            Number num = (Number) value;
-            if (targetType == Byte.class || targetType == byte.class) return num.byteValue();
-            if (targetType == Short.class || targetType == short.class) return num.shortValue();
-            if (targetType == Integer.class || targetType == int.class) return num.intValue();
-            if (targetType == Long.class || targetType == long.class) return num.longValue();
-            if (targetType == Float.class || targetType == float.class) return num.floatValue();
-            if (targetType == Double.class || targetType == double.class) return num.doubleValue();
+        Class<?> targetType = dField.getType();
+        Class<?> sourceType = value.getClass();
+
+        if (value instanceof Collection<?> srcCollection
+                && Collection.class.isAssignableFrom(targetType)) {
+
+            try {
+                Collection<Object> newCollection =
+                        new ArrayList<>();
+
+                ParameterizedType generic =
+                        (ParameterizedType) dField.getGenericType();
+
+                Class<?> destGenericType =
+                        (Class<?>) generic
+                                .getActualTypeArguments()[0];
+
+                for (Object item : srcCollection) {
+
+                    if (item == null) continue;
+
+                    Object mappedItem =
+                            map(item, destGenericType);
+
+                    newCollection.add(mappedItem);
+                }
+
+                return newCollection;
+
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
 
-        if (!sourceType.isPrimitive() && !targetType.isPrimitive() && !sourceType.getName().startsWith("java")) {
+        if (targetType.isAssignableFrom(sourceType))
+            return value;
+
+        if (!sourceType.getName().startsWith("java")
+                && !targetType.getName().startsWith("java")) {
+
             return map(value, targetType);
         }
 
-        throw new RuntimeException("Cannot convert " + sourceType + " to " + targetType);
+        throw new RuntimeException(
+                "Cannot convert "
+                        + sourceType
+                        + " to "
+                        + targetType);
     }
 
     public static <S, D> D executePlan(S source, Class<D> destClass, MappingPlan plan) throws Exception {
